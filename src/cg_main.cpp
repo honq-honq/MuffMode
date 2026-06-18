@@ -16,6 +16,8 @@ void CG_InitScreen();
 uint64_t cgame_init_time = 0;
 
 static void InitCGame() {
+	cgi.cvar("custom_dll", "1", CVAR_USERINFO); // [MuffMode] Advertise enhanced cgame HUD support to the game DLL.
+
 	CG_InitScreen();
 
 	cgame_init_time = cgi.CL_ClientRealTime();
@@ -30,15 +32,15 @@ void CG_DrawHUD(int32_t isplit, const cg_server_data_t *data, vrect_t hud_vrect,
 void CG_TouchPics();
 layout_flags_t CG_LayoutFlags(const player_state_t *ps);
 
-static int32_t CG_GetActiveWeaponWheelWeapon(const player_state_t *ps) {
+int32_t CG_GetActiveWeaponWheelWeapon(const player_state_t *ps) {
 	return ps->stats[STAT_ACTIVE_WHEEL_WEAPON];
 }
 
-static uint32_t CG_GetOwnedWeaponWheelWeapons(const player_state_t *ps) {
+uint32_t CG_GetOwnedWeaponWheelWeapons(const player_state_t *ps) {
 	return ((uint32_t)(uint16_t)ps->stats[STAT_WEAPONS_OWNED_1]) | ((uint32_t)(uint16_t)(ps->stats[STAT_WEAPONS_OWNED_2]) << 16);
 }
 
-static int16_t CG_GetWeaponWheelAmmoCount(const player_state_t *ps, int32_t ammo_id) {
+int16_t CG_GetWeaponWheelAmmoCount(const player_state_t *ps, int32_t ammo_id) {
 	uint16_t ammo = G_GetAmmoStat((uint16_t *)&ps->stats[STAT_AMMO_INFO_START], ammo_id);
 
 	if (ammo == AMMO_VALUE_INFINITE)

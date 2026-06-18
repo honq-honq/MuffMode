@@ -66,10 +66,18 @@ enum {
 
 	CONFIG_STORY_SCORELIMIT,	// this is also used for scorelimit display in dm
 
-	CONFIG_LAST
+	// [MuffMode] Per-player compact match HUD payloads.
+	// NOTE: Only 245 slots are available here (CONFIG_TOP_BAR_COUNT = 245),
+	// so on servers with >245 client slots the highest-index players will
+	// not receive top-bar data. This is a hard configstring pool limit.
+	CONFIG_TOP_BAR,
+	CONFIG_TOP_BAR_END = CS_GENERAL + MAX_GENERAL,
+
+	CONFIG_LAST = CONFIG_TOP_BAR_END
 };
 
 static_assert(CONFIG_LAST <= CS_GENERAL + MAX_GENERAL);
+constexpr int32_t CONFIG_TOP_BAR_COUNT = CONFIG_TOP_BAR_END - CONFIG_TOP_BAR;
 
 // ammo IDs
 enum ammo_t : uint8_t {
@@ -257,6 +265,8 @@ enum player_stat_t {
 
 	STAT_MONSTER_COUNT,
 	STAT_ROUND_NUMBER,
+
+	STAT_TOP_BAR,
 
 	STAT_MEDAL,
 

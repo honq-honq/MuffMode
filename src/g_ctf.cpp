@@ -95,6 +95,7 @@ void CTF_ScoreBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 		gi.LocBroadcast_Print(PRINT_MEDIUM, "$g_bonus_flag_defense",
 			attacker->client->resp.netname,
 			Teams_TeamName(attacker->client->sess.team));
+		attacker->client->pers.team_state.carrier_defense++;
 		if (attacker->client->resp.ghost)
 			attacker->client->resp.ghost->carrierdef++;
 		return;
@@ -153,6 +154,7 @@ void CTF_ScoreBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 			gi.LocBroadcast_Print(PRINT_MEDIUM, "$g_bonus_defend_flag",
 				attacker->client->resp.netname,
 				Teams_TeamName(attacker->client->sess.team));
+		attacker->client->pers.team_state.base_defense++;
 		if (attacker->client->resp.ghost)
 			attacker->client->resp.ghost->basedef++;
 		return;
@@ -169,6 +171,7 @@ void CTF_ScoreBonuses(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker
 			gi.LocBroadcast_Print(PRINT_MEDIUM, "$g_bonus_defend_carrier",
 				attacker->client->resp.netname,
 				Teams_TeamName(attacker->client->sess.team));
+			attacker->client->pers.team_state.carrier_defense++;
 			if (attacker->client->resp.ghost)
 				attacker->client->resp.ghost->carrierdef++;
 			return;
@@ -295,6 +298,7 @@ bool CTF_PickupFlag(gentity_t *ent, gentity_t *other) {
 
 				// other gets capture bonus
 				G_AdjustPlayerScore(other->client, CTF_CAPTURE_BONUS, false, 0);
+				other->client->pers.team_state.captures++;
 				if (other->client->resp.ghost)
 					other->client->resp.ghost->caps++;
 
@@ -309,10 +313,12 @@ bool CTF_PickupFlag(gentity_t *ent, gentity_t *other) {
 						if (ec->client->resp.ctf_lastreturnedflag && ec->client->resp.ctf_lastreturnedflag + CTF_RETURN_FLAG_ASSIST_TIMEOUT > level.time) {
 							gi.LocBroadcast_Print(PRINT_HIGH, "$g_bonus_assist_return", ec->client->resp.netname);
 							G_AdjustPlayerScore(ec->client, CTF_RETURN_FLAG_ASSIST_BONUS, false, 0);
+							ec->client->pers.team_state.assists++;
 						}
 						if (ec->client->resp.ctf_lastfraggedcarrier && ec->client->resp.ctf_lastfraggedcarrier + CTF_FRAG_CARRIER_ASSIST_TIMEOUT > level.time) {
 							gi.LocBroadcast_Print(PRINT_HIGH, "$g_bonus_assist_frag_carrier", ec->client->resp.netname);
 							G_AdjustPlayerScore(ec->client, CTF_FRAG_CARRIER_ASSIST_BONUS, false, 0);
+							ec->client->pers.team_state.assists++;
 						}
 					}
 				}

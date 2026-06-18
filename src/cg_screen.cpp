@@ -34,6 +34,11 @@ static cvar_t *cl_teamBorder;
 static cvar_t *cl_teamBorderWidth;
 static cvar_t *cl_teamBorderAlpha;
 
+// [MuffMode] Custom HUD toggles.
+static cvar_t *hud_side_weapons;
+static cvar_t *hud_top_bar;
+static cvar_t *hud_top_bar_background;
+
 // static temp data used for hud
 static struct {
 	struct {
@@ -115,6 +120,145 @@ void CG_ClearNotify(int32_t isplit) {
 		msg.is_active = false;
 }
 
+struct top_bar_data_t {
+	std::string gametype;
+	std::string name;
+	int32_t kills = 0;
+	int32_t deaths = 0;
+	int32_t damage = 0;
+	int32_t kd_x10 = 0;
+	int32_t captures = 0;
+	int32_t assists = 0;
+	int32_t defense = 0;
+	int32_t horde_wave = 0;
+	int32_t horde_left = 0;
+	int32_t horde_total = 0;
+	int32_t horde_lives = 0;
+	bool horde_all_spawned = false;
+	int32_t ping = 0;
+	bool valid = false;
+};
+
+void CG_ClearCenterprint(int32_t isplit) {
+	hud_data[isplit].center_index = {};
+}
+
+void CG_ClearNotify(int32_t isplit) {
+	for (auto &msg : hud_data[isplit].notify)
+		msg.is_active = false;
+}
+
+// [MuffMode] Split the compact server-published top-bar payload.
+static std::vector<std::string> CG_SplitTopBarData(const char *text) {
+	std::vector<std::string> tokens;
+	const char *start = text;
+
+	for (const char *p = text; *p; ++p) {
+		if (*p != '|')
+			continue;
+
+		tokens.emplace_back(start, p - start);
+		start = p + 1;
+	}
+
+	tokens.emplace_back(start);
+	return tokens;
+}
+
+static int32_t CG_ParseTopBarInt(const std::string &text) {
+	return atoi(text.c_str());
+}
+
+static top_bar_data_t CG_ParseTopBarData(const char *text) {
+	top_bar_data_t data;
+
+	if (!text || !*text)
+		return data;
+
+	const std::vector<std::string> tokens = CG_SplitTopBarData(text);
+	if ((tokens.size() != 11 || tokens[0] != "MM2") && (tokens.size() != 16 || tokens[0] != "MM3"))
+		return data;
+
+	const bool has_horde_data = tokens[0] == "MM3";
+	data.gametype = tokens[1];
+	data.name = tokens[2].empty() ? "Player" : tokens[2];
+	data.kills = CG_ParseTopBarInt(tokens[3]);
+	data.deaths = CG_ParseTopBarInt(tokens[4]);
+	data.damage = CG_ParseTopBarInt(tokens[5]);
+	data.kd_x10 = CG_ParseTopBarInt(tokens[6]);
+	data.captures = CG_ParseTopBarInt(tokens[7]);
+	data.assists = CG_ParseTopBarInt(tokens[8]);
+	data.defense = CG_ParseTopBarInt(tokens[9]);
+
+	if (has_horde_data) {
+		data.horde_wave = CG_ParseTopBarInt(tokens[10]);
+		data.horde_left = CG_ParseTopBarInt(tokens[11]);
+		data.horde_total = CG_ParseTopBarInt(tokens[12]);
+		data.horde_lives = CG_ParseTopBarInt(tokens[13]);
+		data.horde_all_spawned = CG_ParseTopBarInt(tokens[14]) != 0;
+		data.ping = CG_ParseTopBarInt(tokens[15]);
+	} else {
+		data.ping = CG_ParseTopBarInt(tokens[10]);
+	}
+
+	data.valid = true;
+
+	return data;
+}
+
+static std::string CG_TruncateTopBarName(const std::string &name, size_t max_chars) {
+	if (name.size() <= max_chars)
+		return name;
+
+	if (max_chars <= 3)
+		return name.substr(0, max_chars);
+
+	return name.substr(0, max_chars - 3) + "...";
+}
+
+static std::string CG_FormatTopBarRatio(int32_t ratio_x10) {
+	const int32_t abs_ratio = std::abs(ratio_x10);
+
+	return std::string(G_Fmt("{}{}.{}", ratio_x10 < 0 ? "-" : "", abs_ratio / 10, abs_ratio % 10));
+}
+
+static int32_t CG_TopBarHeight(int32_t scale) {
+	return 16 * scale;
+}
+
+static int32_t CG_TopBarReservedHeight(int32_t scale) {
+	return CG_TopBarHeight(scale) + (4 * scale);
+}
+
+static int32_t CG_TopBarRightReserve(const player_state_t *ps, int32_t scale) {
+	if (ps->stats[STAT_LIVES] || ps->stats[STAT_ROUND_NUMBER] || ps->stats[STAT_MONSTER_COUNT])
+		return 112 * scale;
+
+	return 0;
+}
+
+static bool CG_GetTopBarData(const player_state_t *ps, top_bar_data_t &data) {
+	if (!hud_top_bar->integer || !ps->stats[STAT_TOP_BAR] || CG_ViewingLayout(ps) || CG_InIntermission(ps) || CG_HudHidden(ps))
+		return false;
+
+	const char *payload = cgi.get_configstring(ps->stats[STAT_TOP_BAR]);
+	data = CG_ParseTopBarData(payload);
+	return data.valid;
+}
+
+static std::string CG_FitTopBarText(const std::string &text, int32_t max_width, int32_t scale) {
+	if (cgi.SCR_MeasureFontString(text.c_str(), scale).x <= max_width)
+		return text;
+
+	for (size_t chars = text.size(); chars > 0; --chars) {
+		const std::string fitted = CG_TruncateTopBarName(text, chars);
+		if (cgi.SCR_MeasureFontString(fitted.c_str(), scale).x <= max_width)
+			return fitted;
+	}
+
+	return "";
+}
+
 // if the top one is expired, cycle the ones ahead backwards (since
 // the times are always increasing)
 static void CG_Notify_CheckExpire(hud_data_t &data) {
@@ -154,14 +298,14 @@ static void CG_AddNotify(hud_data_t &data, const char *msg, bool is_chat) {
 }
 
 // draw notifies
-static void CG_DrawNotify(int32_t isplit, vrect_t hud_vrect, vrect_t hud_safe, int32_t scale) {
+static void CG_DrawNotify(int32_t isplit, vrect_t hud_vrect, vrect_t hud_safe, int32_t scale, int32_t y_offset) {
 	auto &data = hud_data[isplit];
 
 	CG_Notify_CheckExpire(data);
 
 	int y;
 
-	y = (hud_vrect.y * scale) + hud_safe.y;
+	y = (hud_vrect.y * scale) + hud_safe.y + y_offset;
 
 	cgi.SCR_SetAltTypeface(ui_acc_alttypeface->integer && true);
 
@@ -177,7 +321,7 @@ static void CG_DrawNotify(int32_t isplit, vrect_t hud_vrect, vrect_t hud_safe, i
 		}
 	}
 
-	y = (hud_vrect.y * scale) + hud_safe.y;
+	y = (hud_vrect.y * scale) + hud_safe.y + y_offset;
 	for (auto &msg : data.notify) {
 		if (!msg.is_active)
 			break;
@@ -838,6 +982,27 @@ static void CG_ExecuteLayoutString(const char *s, vrect_t hud_vrect, vrect_t hud
 				y = (hud_vrect.y + hud_vrect.height / 2 + (atoi(token) - hy)) * scale;
 			continue;
 		}
+		// [MuffMode] Support centered HUD layout coordinates used by side-weapon widgets.
+		if (!strcmp(token, "yc")) {
+			token = COM_Parse(&s);
+			if (!skip_depth)
+				y = (hud_vrect.y + hud_vrect.height / 2 + atoi(token)) * scale;
+			continue;
+		}
+
+		// [MuffMode] Explicit dimensions for fixed-size HUD images.
+		if (!strcmp(token, "w")) {
+			token = COM_Parse(&s);
+			if (!skip_depth)
+				w = atoi(token);
+			continue;
+		}
+		if (!strcmp(token, "h")) {
+			token = COM_Parse(&s);
+			if (!skip_depth)
+				h = atoi(token);
+			continue;
+		}
 
 		if (!strcmp(token, "pic")) {   // draw a pic from a stat number
 			token = COM_Parse(&s);
@@ -991,6 +1156,13 @@ static void CG_ExecuteLayoutString(const char *s, vrect_t hud_vrect, vrect_t hud
 				}
 				cgi.SCR_DrawPic(x, y, w * scale, h * scale, token);
 			}
+			continue;
+		}
+		// [MuffMode] Draw a named pic using the current explicit w/h layout dimensions.
+		if (!strcmp(token, "picb")) {
+			token = COM_Parse(&s);
+			if (!skip_depth)
+				cgi.SCR_DrawPic(x, y, w * scale, h * scale, token);
 			continue;
 		}
 
@@ -1170,6 +1342,20 @@ static void CG_ExecuteLayoutString(const char *s, vrect_t hud_vrect, vrect_t hud
 				else {
 					cgi.SCR_SetAltTypeface(ui_acc_alttypeface->integer && true);
 					cgi.SCR_DrawFontString(token, x, y - (font_y_offset * scale), scale, rgba_white, true, text_align_t::LEFT);
+					cgi.SCR_SetAltTypeface(false);
+				}
+			}
+			continue;
+		}
+		// [MuffMode] Named green string token used by side-weapon ammo counts.
+		if (!strcmp(token, "string_green")) {
+			token = COM_Parse(&s);
+			if (!skip_depth) {
+				if (!scr_usekfont->integer)
+					CG_DrawString(x, y, scale, token, true);
+				else {
+					cgi.SCR_SetAltTypeface(ui_acc_alttypeface->integer && true);
+					cgi.SCR_DrawFontString(token, x, y - (font_y_offset * scale), scale, alt_color, true, text_align_t::LEFT);
 					cgi.SCR_SetAltTypeface(false);
 				}
 			}
@@ -1755,6 +1941,113 @@ static void CG_DrawInventory(const player_state_t *ps, const std::array<int16_t,
 }
 
 extern uint64_t cgame_init_time;
+int32_t CG_GetActiveWeaponWheelWeapon(const player_state_t* ps);
+uint32_t CG_GetOwnedWeaponWheelWeapons(const player_state_t* ps);
+int16_t CG_GetWeaponWheelAmmoCount(const player_state_t* ps, int32_t ammo_id);
+
+/*
+================
+CG_DrawSideWeapons
+
+Draws owned weapon icons vertically along the right edge of the HUD
+when hud_side_weapons is enabled. Shows weapon icon and ammo count
+for each owned weapon from the prioritized list.
+================
+*/
+static void CG_DrawSideWeapons(const player_state_t* ps, const vrect_t& hud_vrect, const vrect_t& hud_safe,
+                               int32_t scale, int32_t playernum)
+{
+    if (!hud_side_weapons->integer)
+        return;
+    if (!(ps->stats[STAT_WEAPONS_OWNED_1] || ps->stats[STAT_WEAPONS_OWNED_2]))
+        return;
+
+    uint32_t owned_weapons = CG_GetOwnedWeaponWheelWeapons(ps);
+    std::string weapon_layout;
+    std::vector<int> weapons_to_show;
+
+    // Define weapons to show (prioritized: primary, then fallback)
+    struct DesiredWeapon
+    {
+        int primary_id;
+        int secondary_id;
+    };
+    DesiredWeapon desired_weapons[] = {
+        {4,  3},
+        {7,  5},
+        {17, -1},
+        {13, -1},
+        {11, 8},
+        {14, -1}
+    };
+
+    for (auto& desired : desired_weapons)
+    {
+        int weapon_to_add = -1;
+        if (owned_weapons & (1u << desired.primary_id))
+            weapon_to_add = desired.primary_id;
+        else if (desired.secondary_id != -1 && (owned_weapons & (1u << desired.secondary_id)))
+            weapon_to_add = desired.secondary_id;
+
+        if (weapon_to_add != -1)
+            weapons_to_show.push_back(weapon_to_add);
+    }
+
+    if (weapons_to_show.empty())
+        return;
+
+    constexpr int icon_size = 24;
+    constexpr int icon_spacing = 28;
+    int total_height = static_cast<int>(weapons_to_show.size()) * icon_spacing;
+    int start_y = -(total_height / 2);
+    int current_y = start_y;
+
+    for (int weapon_id : weapons_to_show)
+    {
+        const char* weapon_config = cgi.get_configstring(CS_WHEEL_WEAPONS + weapon_id);
+        if (!weapon_config || !*weapon_config)
+            continue;
+
+        // Parse weapon config: field1|image_index|ammo_type
+        const char* p = weapon_config;
+        while (*p && *p != '|') p++;
+        if (*p) p++;
+        int image_index = atoi(p);
+        if (image_index < 0 || image_index >= MAX_IMAGES)
+            continue;
+        while (*p && *p != '|') p++;
+        if (*p) p++;
+        int ammo_type = atoi(p);
+
+        const char* icon_name = cgi.get_configstring(CS_IMAGES + image_index);
+        if (!icon_name || !*icon_name)
+            continue;
+
+        // Weapon icon
+        weapon_layout += fmt::format(
+            "xr {} yc {} w {} h {} picb {} ",
+            -24, current_y, icon_size, icon_size, icon_name
+        );
+
+        // Ammo count
+        if (ammo_type >= 0 && ammo_type < AMMO_MAX)
+        {
+            uint16_t ammo_count = G_GetAmmoStat((uint16_t*)&ps->stats[STAT_AMMO_INFO_START], ammo_type);
+            if (ammo_count != AMMO_VALUE_INFINITE)
+            {
+                weapon_layout += fmt::format(
+                    "xr {} yc {} string{} \"{}\" ",
+                    -52, current_y + 8, "_green", ammo_count
+                );
+            }
+        }
+
+        current_y += icon_spacing;
+    }
+
+    CG_ExecuteLayoutString(weapon_layout.c_str(), hud_vrect, hud_safe, scale, playernum, ps);
+}
+extern uint64_t cgame_init_time;
 
 // Team ID constants (matching g_local.h enum team_t)
 constexpr uint8_t TEAM_NONE = 0;
@@ -1808,6 +2101,125 @@ static void CG_DrawTeamBorder(const player_state_t *ps, vrect_t hud_vrect, int32
 	cgi.SCR_DrawColorPic(x, y + h - border_width, w, border_width, "_white", border_color);
 }
 
+static bool CG_IsHordeBossHealthBar(const char *name) {
+	return name && (!strcmp(name, "BOSS") || !strncmp(name, "BOSS: ", 6));
+}
+
+// [MuffMode] Horde boss waves run in the DM HUD branch, so draw their health
+// bar directly from the shared KEX health-bar stat instead of relying on the
+// single-player/co-op statusbar token.
+static void CG_DrawHordeBossHealthBar(const player_state_t *ps, vrect_t hud_vrect, vrect_t hud_safe, int32_t scale, bool draw_top_bar) {
+	if (CG_ViewingLayout(ps) || CG_InIntermission(ps))
+		return;
+
+	const byte *stat = reinterpret_cast<const byte *>(&ps->stats[STAT_HEALTH_BARS]);
+	if (!(*stat & 0b10000000))
+		return;
+
+	const char *raw_name = cgi.get_configstring(CONFIG_HEALTH_BAR_NAME);
+	if (!CG_IsHordeBossHealthBar(raw_name))
+		return;
+
+	const char *name = cgi.Localize(raw_name, nullptr, 0);
+	const float percent = (*stat & 0b01111111) / 127.f;
+	const float max_width = ((hud_vrect.width * scale) - (hud_safe.x * 2)) * 0.50f;
+	const float bar_width = std::min(max_width, 320.f * scale);
+	const float bar_height = 6.f * scale;
+
+	if (bar_width <= 0 || bar_height <= 0)
+		return;
+
+	const float center_x = (hud_vrect.x + (hud_vrect.width * 0.5f)) * scale;
+	const float label_y = (hud_vrect.y * scale) + (draw_top_bar ? CG_TopBarReservedHeight(scale) : 0) + (24 * scale);
+	const float bar_x = center_x - (bar_width * 0.5f);
+	const float bar_y = label_y + cgi.SCR_FontLineHeight(scale);
+
+	cgi.SCR_DrawFontString(name, center_x, label_y - (font_y_offset * scale), scale, rgba_white, true, text_align_t::CENTER);
+	cgi.SCR_DrawColorPic(bar_x - scale, bar_y - scale, bar_width + (scale * 2), bar_height + (scale * 2), "_white", rgba_black);
+	cgi.SCR_DrawColorPic(bar_x, bar_y, bar_width, bar_height, "_white", { 80, 80, 80, 220 });
+	if (percent > 0)
+		cgi.SCR_DrawColorPic(bar_x, bar_y, bar_width * percent, bar_height, "_white", rgba_red);
+}
+
+// [MuffMode] Draw compact live match stats as a full-width scoreboard strip.
+static void CG_DrawTopBar(const top_bar_data_t &data, const player_state_t *ps, vrect_t hud_vrect, int32_t scale) {
+	const int32_t bar_x = hud_vrect.x * scale;
+	const int32_t bar_y = hud_vrect.y * scale;
+	const int32_t bar_width = hud_vrect.width * scale;
+	const int32_t bar_height = CG_TopBarHeight(scale);
+
+	if (bar_width <= 0 || bar_height <= 0)
+		return;
+
+	if (hud_top_bar_background->integer) {
+		rgba_t background{ 20, 20, 20, 160 };
+		if (ps->team_id == TEAM_RED)
+			background = { 90, 24, 24, 170 };
+		else if (ps->team_id == TEAM_BLUE)
+			background = { 24, 42, 100, 170 };
+
+		cgi.SCR_DrawColorPic(bar_x, bar_y, bar_width, bar_height, "_white", background);
+	}
+
+	const int32_t margin = 8 * scale;
+	const int32_t text_y = bar_y + (3 * scale) - (font_y_offset * scale);
+	const int32_t right_reserve = CG_TopBarRightReserve(ps, scale);
+	const int32_t usable = bar_width - (2 * margin) - right_reserve;
+	const bool is_ctf = data.gametype == "ctf";
+	const bool is_horde = data.gametype == "horde";
+	const std::string kd = CG_FormatTopBarRatio(data.kd_x10);
+
+	if (usable <= 0)
+		return;
+
+	std::vector<std::string> slots;
+	if (is_horde) {
+		slots = {
+			data.name,
+			std::string(G_Fmt("Wave: {}", data.horde_wave)),
+			std::string(G_Fmt("Left: {}/{}", data.horde_left, data.horde_total)),
+			std::string(G_Fmt("Kills: {}", data.kills)),
+			std::string(G_Fmt("DMG: {}", data.damage)),
+			std::string(G_Fmt("Ping: {}", data.ping))
+		};
+	} else if (is_ctf) {
+		slots = {
+			data.name,
+			std::string(G_Fmt("Frags: {}", data.kills)),
+			std::string(G_Fmt("Deaths: {}", data.deaths)),
+			std::string(G_Fmt("CAP: {} AST: {} DEF: {}", data.captures, data.assists, data.defense)),
+			std::string(G_Fmt("DMG: {}", data.damage)),
+			std::string(G_Fmt("K/D: {}", kd)),
+			std::string(G_Fmt("Ping: {}", data.ping))
+		};
+	} else {
+		slots = {
+			data.name,
+			std::string(G_Fmt("Frags: {}", data.kills)),
+			std::string(G_Fmt("Deaths: {}", data.deaths)),
+			std::string(G_Fmt("DMG: {}", data.damage)),
+			std::string(G_Fmt("K/D: {}", kd)),
+			std::string(G_Fmt("Ping: {}", data.ping))
+		};
+	}
+
+	const int32_t slot_width = usable / static_cast<int32_t>(slots.size());
+	const int32_t text_width = slot_width - (12 * scale);
+	if (slot_width <= 0 || text_width <= 0)
+		return;
+
+	for (size_t i = 0; i < slots.size(); ++i) {
+		const int32_t slot_center = bar_x + margin + (static_cast<int32_t>(i) * slot_width) + (slot_width / 2);
+		const std::string text = CG_FitTopBarText(slots[i], text_width, scale);
+		cgi.SCR_DrawFontString(text.c_str(), slot_center, text_y, scale, rgba_white, true, text_align_t::CENTER);
+	}
+
+	for (size_t i = 1; i < slots.size(); ++i) {
+		const int32_t separator_x = bar_x + margin + (static_cast<int32_t>(i) * slot_width);
+		cgi.SCR_DrawFontString(":", separator_x, text_y, scale, rgba_white, true, text_align_t::CENTER);
+	}
+}
+
 void CG_DrawHUD(int32_t isplit, const cg_server_data_t *data, vrect_t hud_vrect, vrect_t hud_safe, int32_t scale, int32_t playernum, const player_state_t *ps) {
 	if (cgi.CL_InAutoDemoLoop()) {
 		if (cl_paused->integer) return; // demo is paused, menu is open
@@ -1819,15 +2231,28 @@ void CG_DrawHUD(int32_t isplit, const cg_server_data_t *data, vrect_t hud_vrect,
 		return;
 	}
 
+	top_bar_data_t top_bar_data;
+	const bool draw_custom_hud = !cl_skipHud->integer && !CG_HudHidden(ps);
+	const bool draw_top_bar = draw_custom_hud && CG_GetTopBarData(ps, top_bar_data);
+
 	// draw HUD
-	if (!cl_skipHud->integer && !(ps->stats[STAT_LAYOUTS] & LAYOUTS_HIDE_HUD))
+	if (draw_custom_hud) {
+		// [MuffMode] Draw the top bar behind the normal statusbar so top-anchored HUD icons keep their positions.
+		if (draw_top_bar)
+			CG_DrawTopBar(top_bar_data, ps, hud_vrect, scale);
+
 		CG_ExecuteLayoutString(cgi.get_configstring(CS_STATUSBAR), hud_vrect, hud_safe, scale, playernum, ps);
+		CG_DrawHordeBossHealthBar(ps, hud_vrect, hud_safe, scale, draw_top_bar);
+
+		// [MuffMode] Draw owned weapons along the right side of the HUD.
+		CG_DrawSideWeapons(ps, hud_vrect, hud_safe, scale, playernum);
+	}
 
 	// draw centerprint string
 	CG_CheckDrawCenterString(ps, hud_vrect, hud_safe, isplit, scale);
 
 	// draw notify
-	CG_DrawNotify(isplit, hud_vrect, hud_safe, scale);
+	CG_DrawNotify(isplit, hud_vrect, hud_safe, scale, draw_top_bar ? CG_TopBarReservedHeight(scale) : 0);
 
 	// svc_layout still drawn with hud off
 	if (ps->stats[STAT_LAYOUTS] & LAYOUTS_LAYOUT)
@@ -1874,6 +2299,11 @@ void CG_InitScreen() {
 	cl_teamBorder = cgi.cvar("cl_teamBorder", "1", CVAR_ARCHIVE);
 	cl_teamBorderWidth = cgi.cvar("cl_teamBorderWidth", "1", CVAR_ARCHIVE);
 	cl_teamBorderAlpha = cgi.cvar("cl_teamBorderAlpha", "150", CVAR_ARCHIVE);
+
+	// [MuffMode] Custom HUD cvars.
+	hud_side_weapons = cgi.cvar("hud_side_weapons", "1", CVAR_NOFLAGS);
+	hud_top_bar = cgi.cvar("hud_top_bar", "1", CVAR_ARCHIVE);
+	hud_top_bar_background = cgi.cvar("hud_top_bar_background", "1", CVAR_ARCHIVE);
 
 	hud_data = {};
 }

@@ -751,6 +751,7 @@ void T_Damage(gentity_t *targ, gentity_t *inflictor, gentity_t *attacker, const 
 			attacker->client->ps.stats[STAT_HIT_MARKER] += take + psave + asave;
 		}
 		MS_Adjust(attacker->client, MSTAT_DMG_DEALT, stat_take + psave + asave);
+		attacker->client->resp.top_bar_damage_dealt += stat_take + psave + asave; // [MuffMode]
 
 		if (targ->client)
 			MS_Adjust(targ->client, MSTAT_DMG_RECEIVED, stat_take + psave + asave);

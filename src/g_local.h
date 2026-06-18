@@ -3473,6 +3473,7 @@ struct client_respawn_t {
 	gtime_t				team_delay_time;
 
 	int					mstats[MSTAT_TOTAL];
+	int					top_bar_damage_dealt; // [MuffMode] HUD damage counter independent of g_matchstats
 };
 
 // [Paril-KEX] seconds until we are fully invisible after
@@ -3699,6 +3700,8 @@ struct gclient_t {
 	bool		ready_to_exit;
 
 	int			last_match_timer_update;
+	gtime_t		top_bar_update_time; // [MuffMode] throttle compact match HUD configstring churn
+	bool		uses_custom_dll; // [MuffMode] client advertised enhanced cgame support
 
 	client_match_stats_t mstats;
 

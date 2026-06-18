@@ -3224,6 +3224,13 @@ void ClientUserinfoChanged(gentity_t *ent, const char *userinfo) {
 		ent->client->pers.bob_skip = false;
 	}
 
+	// [MuffMode] Enhanced HUD payloads are only sent to clients running this cgame DLL.
+	if (gi.Info_ValueForKey(userinfo, "custom_dll", val, sizeof(val))) {
+		ent->client->uses_custom_dll = atoi(val) != 0;
+	} else {
+		ent->client->uses_custom_dll = false;
+	}
+
 	// save off the userinfo in case we want to check something later
 	Q_strlcpy(ent->client->pers.userinfo, userinfo, sizeof(ent->client->pers.userinfo));
 }

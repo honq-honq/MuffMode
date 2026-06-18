@@ -1622,6 +1622,7 @@ void G_SetStats(gentity_t *ent) {
 	}
 
 	SetMiniScoreStats(ent);
+	SetTopBarStats(ent); // [MuffMode]
 
 	// ghosting
 	if (ent->client->resp.ghost) {

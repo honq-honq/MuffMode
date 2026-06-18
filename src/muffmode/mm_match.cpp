@@ -105,8 +105,14 @@ static void Entities_Reset(bool reset_players, bool reset_ghost, bool reset_scor
 			}
 
 			ec->client->resp.ctf_state = 0;
-			if (reset_score)
+			if (reset_score) {
 				ec->client->resp.score = 0;
+				ec->client->resp.top_bar_damage_dealt = 0;
+				ec->client->pers.team_state.captures = 0;
+				ec->client->pers.team_state.assists = 0;
+				ec->client->pers.team_state.base_defense = 0;
+				ec->client->pers.team_state.carrier_defense = 0;
+			}
 			if (reset_ghost)
 				ec->client->resp.ghost = nullptr;
 

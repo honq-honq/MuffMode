@@ -35,6 +35,7 @@ void MM_InitStatusbar()
 	if (InCoopStyle()) {
 		int32_t y = 2;
 		const int32_t text_adj = 26;
+		const int32_t horde_top_offset = 20;
 
 		sb.ifstat(STAT_COOP_RESPAWN).xv(0).yt(0).loc_stat_cstring2(STAT_COOP_RESPAWN).endifstat();
 
@@ -42,10 +43,13 @@ void MM_InitStatusbar()
 			sb.ifstat(STAT_LIVES).xr(-16).yt(y = 2).lives_num(STAT_LIVES).xr(0).yt(y += text_adj).loc_rstring("$g_lives").endifstat();
 
 		if (GT(GT_HORDE) && g_horde_lives->integer > 0)
-			sb.ifstat(STAT_LIVES).xr(-16).yt(y = 2).lives_num(STAT_LIVES).xr(0).yt(y += text_adj).loc_rstring("$g_lives").endifstat();
+			sb.ifstat(STAT_LIVES).xr(-16).yt(y = 2 + horde_top_offset).lives_num(STAT_LIVES).xr(0).yt(y += text_adj).loc_rstring("$g_lives").endifstat();
 
 		if (GT(GT_HORDE)) {
 			int num, chars;
+
+			if (!(g_horde_lives->integer > 0))
+				y += horde_top_offset;
 
 			num = level.round_number;
 			chars = num > 99 ? 3 : num > 9 ? 2 : 1;
