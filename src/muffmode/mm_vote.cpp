@@ -5,6 +5,7 @@
 #include "g_debug_log.h"
 #include "muffmode/mm_captain.h"
 #include "muffmode/mm_gametype.h"
+#include "muffmode/mm_horde.h"
 #include "muffmode/mm_match.h"
 #include "muffmode/mm_team.h"
 #include "muffmode/mm_vote.h"
@@ -767,6 +768,8 @@ void MM_VotePassTechs()
 	gi.LocBroadcast_Print(PRINT_HIGH, "Techs have been {}.\n", argi ? "ENABLED" : "DISABLED");
 
 	gi.cvar_forceset("g_allow_techs", argi ? "1" : "0");
+	if (GT(GT_HORDE))
+		gi.cvar_forceset("g_horde_techs", argi ? "1" : "0");
 
 	// Restart the map so tech changes take effect immediately.
 	gi.AddCommandString(G_Fmt("gamemap {}\n", level.mapname).data());
@@ -774,9 +777,10 @@ void MM_VotePassTechs()
 
 bool MM_VoteValTechs(gentity_t *ent)
 {
-	if (notGT(GT_FFA) && notGT(GT_TDM) && notGT(GT_CTF))
+	// [MuffMode] allow techs vote in horde
+	if (notGT(GT_FFA) && notGT(GT_TDM) && notGT(GT_CTF) && notGT(GT_HORDE))
 	{
-		gi.LocClient_Print(ent, PRINT_HIGH, "Techs can only be changed in FFA, TDM or CTF gametypes.\n");
+		gi.LocClient_Print(ent, PRINT_HIGH, "Techs can only be changed in FFA, TDM, CTF or Horde gametypes.\n");
 		return false;
 	}
 
@@ -788,7 +792,7 @@ bool MM_VoteValTechs(gentity_t *ent)
 		return false;
 	}
 
-	bool currently_enabled = AllowTechs();
+	bool currently_enabled = GT(GT_HORDE) ? MM_Horde_UsesWaveTechs() : AllowTechs();
 	bool will_be_enabled = (arg == 1);
 
 	if (currently_enabled == will_be_enabled)

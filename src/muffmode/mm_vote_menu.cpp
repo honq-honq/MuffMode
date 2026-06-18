@@ -4,6 +4,7 @@
 #include "g_local.h"
 #include "g_debug_log.h"
 #include "muffmode/mm_gametype.h"
+#include "muffmode/mm_horde.h"
 #include "muffmode/mm_menu.h"
 #include "muffmode/mm_vote.h"
 #include "muffmode/mm_vote_menu.h"
@@ -703,10 +704,12 @@ void G_Menu_CallVote_Update(gentity_t *ent)
 	Q_strlcpy(entries[powerups_index].text, G_Fmt("Powerups: {}", powerups_enabled ? "ON" : "OFF").data(), sizeof(entries[powerups_index].text));
 
 	int techs_index = powerups_index + 1;
-	if (GT(GT_FFA) || GT(GT_TDM) || GT(GT_CTF))
+	// [MuffMode] allow techs vote in horde
+	if (GT(GT_FFA) || GT(GT_TDM) || GT(GT_CTF) || GT(GT_HORDE))
 	{
 		entries[techs_index].SelectFunc = G_Menu_CallVote_Techs;
-		Q_strlcpy(entries[techs_index].text, G_Fmt("Techs: {}", AllowTechs() ? "ON" : "OFF").data(), sizeof(entries[techs_index].text));
+		const bool techs_enabled = GT(GT_HORDE) ? MM_Horde_UsesWaveTechs() : AllowTechs();
+		Q_strlcpy(entries[techs_index].text, G_Fmt("Techs: {}", techs_enabled ? "ON" : "OFF").data(), sizeof(entries[techs_index].text));
 	}
 	else
 	{
@@ -802,7 +805,7 @@ void G_Menu_CallVote_Techs_Selection(gentity_t *ent, menu_hnd_t *p)
 		return;
 
 	int v = strtoul(value, nullptr, 10);
-	bool currently_enabled = AllowTechs();
+	bool currently_enabled = GT(GT_HORDE) ? MM_Horde_UsesWaveTechs() : AllowTechs();
 	if (currently_enabled == (v == 1))
 	{
 		gi.LocClient_Print(ent, PRINT_HIGH, "Techs are already {}.\n", v ? "ENABLED" : "DISABLED");

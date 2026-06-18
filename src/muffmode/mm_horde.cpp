@@ -5,6 +5,7 @@
 #include "muffmode/mm_horde.h"
 
 #include <climits>
+#include <vector>
 
 // Late-wave tuning cvars are referenced by helpers defined before the main extern block below.
 extern cvar_t *g_horde_content_peak_wave;

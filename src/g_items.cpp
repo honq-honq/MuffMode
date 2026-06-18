@@ -4,6 +4,7 @@
 #include "bots/bot_includes.h"
 #include "monsters/m_player.h"	//doppelganger
 #include "muffmode/mm_captain.h"
+#include "muffmode/mm_horde.h"
 #include "muffmode/mm_items_rules.h"
 #include "muffmode/mm_ruleset.h"
 
@@ -1031,6 +1032,10 @@ static THINK(Tech_SpawnAll) (gentity_t *ent) -> void {
 }
 
 void Tech_SetupSpawn() {
+	// [MuffMode] Horde wave techs are spawned and cleared per wave countdown.
+	if (MM_Horde_UsesWaveTechs())
+		return;
+
 	if (!AllowTechs())
 		return;
 
