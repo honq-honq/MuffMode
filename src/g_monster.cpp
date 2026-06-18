@@ -1,6 +1,7 @@
 // Copyright (c) ZeniMax Media Inc.
 // Licensed under the GNU General Public License 2.0.
 #include "g_local.h"
+#include "muffmode/mm_horde.h"
 #include "bots/bot_includes.h"
 // [MuffMode] Horde kill scoring hook
 #include "muffmode/mm_horde.h"
@@ -608,8 +609,11 @@ void M_ProcessPain(gentity_t *e) {
 				}
 			}
 
-			if (!(e->monsterinfo.aiflags & AI_DO_NOT_COUNT) && !(e->spawnflags & SPAWNFLAG_MONSTER_DEAD))
+			if (!(e->monsterinfo.aiflags & AI_DO_NOT_COUNT) && !(e->spawnflags & SPAWNFLAG_MONSTER_DEAD)) {
 				G_MonsterKilled(e);
+				// [MuffMode] Horde boss waves react to final boss-phase deaths.
+				MM_Horde_OnMonsterKilled(e);
+			}
 
 			e->touch = nullptr;
 			monster_death_use(e);
@@ -618,8 +622,11 @@ void M_ProcessPain(gentity_t *e) {
 		if (!e->deadflag) {
 			int32_t score_value = ceil(e->monsterinfo.base_health / 100);
 			if (score_value < 1) score_value = 1;
-			if (e->monsterinfo.damage_attacker && e->monsterinfo.damage_attacker->client)
+			if (e->monsterinfo.damage_attacker && e->monsterinfo.damage_attacker->client) {
 				MM_Horde_AdjustPlayerScore(e->monsterinfo.damage_attacker->client, score_value);
+				// [MuffMode] bonus ammo on monster kill scaled by player count
+				MM_Horde_AdjustAmmoDrop(e->monsterinfo.damage_attacker);
+			}
 		}
 		e->die(e, e->monsterinfo.damage_inflictor, e->monsterinfo.damage_attacker, e->monsterinfo.damage_blood, e->monsterinfo.damage_from, e->monsterinfo.damage_mod);
 

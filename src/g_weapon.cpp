@@ -2,6 +2,8 @@
 // Licensed under the GNU General Public License 2.0.
 #include "g_local.h"
 
+extern cvar_t *g_horde_bfg_laser_limit;
+
 /*
 =================
 fire_hit
@@ -1198,6 +1200,8 @@ static THINK(bfg_think) (gentity_t *self) -> void {
 
 	bfg_spawn_laser(self);
 
+	int laser_limit = g_horde_bfg_laser_limit->integer;
+	int laser_count = 0;
 	ent = nullptr;
 	while ((ent = findradius(ent, self->s.origin, 256)) != nullptr) {
 		if (ent == self)
@@ -1243,6 +1247,10 @@ static THINK(bfg_think) (gentity_t *self) -> void {
 		gi.WritePosition(self->s.origin);
 		gi.WritePosition(tr.endpos);
 		gi.multicast(self->s.origin, MULTICAST_PHS, false);
+
+		// [MuffMode] cap targets per tick to reduce trace/network spam (horde only)
+		if (GT(GT_HORDE) && laser_limit > 0 && ++laser_count >= laser_limit)
+			break;
 	}
 
 	self->nextthink = level.time + 10_hz;

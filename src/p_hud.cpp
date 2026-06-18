@@ -3,6 +3,7 @@
 #include "g_local.h"
 #include "g_statusbar.h"
 #include "muffmode/mm_duel.h"
+#include "muffmode/mm_horde.h"
 #include "muffmode/mm_vote_menu.h"
 
 /*
@@ -1261,6 +1262,76 @@ static void SetMiniScoreStats(gentity_t *ent) {
 			}
 		}
 	}
+}
+
+// [MuffMode] Publish one compact, client-specific stat payload for the match top bar.
+static void SetTopBarStats(gentity_t *ent) {
+	if (!deathmatch->integer || !ClientIsPlaying(ent->client) || !ent->client->uses_custom_dll) {
+		ent->client->ps.stats[STAT_TOP_BAR] = 0;
+		return;
+	}
+
+	const int32_t player_index = static_cast<int32_t>(ent - g_entities) - 1;
+	if (player_index < 0 || player_index >= CONFIG_TOP_BAR_COUNT) {
+		ent->client->ps.stats[STAT_TOP_BAR] = 0;
+		return;
+	}
+
+	std::string name = ent->client->resp.netname[0] ? ent->client->resp.netname : ent->client->pers.netname;
+	for (char &ch : name) {
+		if (ch == '|')
+			ch = ' ';
+	}
+
+	if (name.size() > 24)
+		name.resize(24);
+
+	const int kills = ent->client->resp.score;
+	const int deaths = ent->client->resp.mstats[MSTAT_DEATHS_TOTAL];
+	const int damage = ent->client->resp.top_bar_damage_dealt;
+	const int kd_x10 = deaths > 0 ? (kills * 10) / deaths : (kills > 0 ? kills * 10 : 0);
+	const int defense = ent->client->pers.team_state.base_defense + ent->client->pers.team_state.carrier_defense;
+	const bool is_horde = GT(GT_HORDE);
+	const int horde_left = is_horde ? max(0, level.total_monsters - level.killed_monsters) : 0;
+	const int horde_total = is_horde ? max(0, level.total_monsters) : 0;
+	const int horde_lives = is_horde ? max(0, ent->client->pers.lives) : 0;
+	const int horde_wave = is_horde ? max(0, level.round_number) : 0;
+	const int horde_all_spawned = is_horde && level.horde_all_spawned ? 1 : 0;
+	const int config_index = CONFIG_TOP_BAR + player_index;
+
+	const std::string hud_data = std::string(G_Fmt("MM3|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}",
+		gt_short_name[g_gametype->integer],
+		name,
+		kills,
+		deaths,
+		damage,
+		kd_x10,
+		ent->client->pers.team_state.captures,
+		ent->client->pers.team_state.assists,
+		defense,
+		horde_wave,
+		horde_left,
+		horde_total,
+		horde_lives,
+		horde_all_spawned,
+		std::min(ent->client->ping, 999)));
+
+	const char *old_data = gi.get_configstring(config_index);
+	const char *old_ping = old_data ? strrchr(old_data, '|') : nullptr;
+	const char *new_ping = strrchr(hud_data.c_str(), '|');
+	const size_t old_stats_len = old_ping ? static_cast<size_t>(old_ping - old_data) : 0;
+	const size_t new_stats_len = new_ping ? static_cast<size_t>(new_ping - hud_data.c_str()) : 0;
+	const bool stats_changed = !old_data || !old_ping || !new_ping ||
+		old_stats_len != new_stats_len ||
+		strncmp(old_data, hud_data.c_str(), old_stats_len) != 0;
+	const bool time_to_update = level.time >= ent->client->top_bar_update_time;
+
+	if (stats_changed || ((old_data && strcmp(old_data, hud_data.c_str()) != 0) && time_to_update)) {
+		gi.configstring(config_index, hud_data.c_str());
+		ent->client->top_bar_update_time = level.time + 1_sec;
+	}
+
+	ent->client->ps.stats[STAT_TOP_BAR] = config_index;
 }
 
 /*

@@ -204,6 +204,11 @@ bool MM_DeferInitialPowerupSpawn(gentity_t *ent)
 	if (!(RS(RS_MM) || RS(RS_Q3A)) || !deathmatch->integer || !(ent->item->flags & IF_POWERUP))
 		return false;
 
+	// [MuffMode] Horde dynamically spawns powerups as wave-countdown techs;
+	// deferring them hides them for the entire countdown and beyond.
+	if (GT(GT_HORDE))
+		return false;
+
 	int32_t r = RS(RS_MM) ? 30 : irandom(30, 60);
 
 	ent->svflags |= SVF_NOCLIENT;

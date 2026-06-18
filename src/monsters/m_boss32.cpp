@@ -9,6 +9,7 @@ Makron -- Final Boss
 */
 
 #include "../g_local.h"
+#include "../muffmode/mm_horde.h"
 #include "m_boss32.h"
 #include "m_flash.h"
 
@@ -746,6 +747,10 @@ Jorg is just about dead, so set up to launch Makron out
 =================
 */
 void MakronToss(gentity_t *self) {
+	// [MuffMode] Horde boss-wave Jorg only sometimes advances to Makron.
+	if (!MM_Horde_ShouldAllowJorgMakron(self))
+		return;
+
 	gentity_t *ent = G_Spawn();
 	ent->classname = "monster_makron";
 	ent->target = self->target;
@@ -753,6 +758,7 @@ void MakronToss(gentity_t *self) {
 	ent->enemy = self->enemy;
 
 	MakronSpawn(ent);
+	MM_Horde_OnJorgMakronSpawned(self, ent);
 
 	// [Paril-KEX] set health bar over to Makron when we throw him out
 	for (size_t i = 0; i < 2; i++)

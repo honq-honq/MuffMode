@@ -111,15 +111,6 @@ struct hud_data_t {
 
 static std::array<hud_data_t, MAX_SPLIT_PLAYERS> hud_data;
 
-void CG_ClearCenterprint(int32_t isplit) {
-	hud_data[isplit].center_index = {};
-}
-
-void CG_ClearNotify(int32_t isplit) {
-	for (auto &msg : hud_data[isplit].notify)
-		msg.is_active = false;
-}
-
 struct top_bar_data_t {
 	std::string gametype;
 	std::string name;

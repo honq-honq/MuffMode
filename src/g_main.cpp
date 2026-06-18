@@ -204,6 +204,21 @@ cvar_t *g_horde_late_wave_factor;
 cvar_t *g_horde_weight_floor;
 cvar_t *g_horde_theme_min_monsters;
 cvar_t *g_horde_start_chainsaw;
+cvar_t *g_horde_techs;
+cvar_t *g_horde_bfg_laser_limit;
+cvar_t *g_horde_ammo_respawn_scale;
+cvar_t *g_horde_ammo_drop_scale;
+cvar_t *g_horde_boss_waves;
+cvar_t *g_horde_boss_interval;
+cvar_t *g_horde_boss_health_base;
+cvar_t *g_horde_boss_health_per_point;
+cvar_t *g_horde_boss_health_mult;
+cvar_t *g_horde_boss_health_per_wave;
+cvar_t *g_horde_boss_player_health_scale;
+cvar_t *g_horde_boss_damage_mult;
+cvar_t *g_horde_boss_jorg_makron_chance;
+cvar_t *g_horde_boss_makron_health_mult;
+cvar_t *g_horde_boss_makron_damage_mult;
 cvar_t *g_huntercam;
 cvar_t *g_inactivity;
 cvar_t *g_infinite_ammo;
@@ -488,6 +503,30 @@ static void InitGame() {
 	g_horde_weight_floor = gi.cvar("g_horde_weight_floor", "0.12", CVAR_NOFLAGS);
 	g_horde_theme_min_monsters = gi.cvar("g_horde_theme_min_monsters", "2", CVAR_NOFLAGS);
 	g_horde_start_chainsaw = gi.cvar("g_horde_start_chainsaw", "1", CVAR_NOFLAGS);
+	// [MuffMode] Horde countdown techs: spawn tech items at DM spawn points during
+	// the pre-wave countdown so players can grab them before the wave starts.
+	// Techs are stripped from all players when the wave is cleared.
+	g_horde_techs = gi.cvar("g_horde_techs", "0", CVAR_NOFLAGS);
+	// [MuffMode] Cap BFG laser targets per tick to reduce trace/network spam in horde.
+	// 0 = unlimited (vanilla).  Set to e.g. 8 to limit damage per tick.
+	g_horde_bfg_laser_limit = gi.cvar("g_horde_bfg_laser_limit", "0", CVAR_NOFLAGS);
+	// [MuffMode] Scale weapon respawn time and bonus ammo from monster kills
+	// by player count. 0 = off.
+	g_horde_ammo_respawn_scale = gi.cvar("g_horde_ammo_respawn_scale", "0.3", CVAR_NOFLAGS);
+	g_horde_ammo_drop_scale = gi.cvar("g_horde_ammo_drop_scale", "0.15", CVAR_NOFLAGS);
+	// [MuffMode] Boss-only Horde waves. Every interval wave spawns one huge boss
+	// from the boss pool and skips normal themes, rosters, and champions.
+	g_horde_boss_waves = gi.cvar("g_horde_boss_waves", "1", CVAR_NOFLAGS);
+	g_horde_boss_interval = gi.cvar("g_horde_boss_interval", "5", CVAR_NOFLAGS);
+	g_horde_boss_health_base = gi.cvar("g_horde_boss_health_base", "700", CVAR_NOFLAGS);
+	g_horde_boss_health_per_point = gi.cvar("g_horde_boss_health_per_point", "70", CVAR_NOFLAGS);
+	g_horde_boss_health_mult = gi.cvar("g_horde_boss_health_mult", "1.0", CVAR_NOFLAGS);
+	g_horde_boss_health_per_wave = gi.cvar("g_horde_boss_health_per_wave", "0", CVAR_NOFLAGS);
+	g_horde_boss_player_health_scale = gi.cvar("g_horde_boss_player_health_scale", "0", CVAR_NOFLAGS);
+	g_horde_boss_damage_mult = gi.cvar("g_horde_boss_damage_mult", "3.0", CVAR_NOFLAGS);
+	g_horde_boss_jorg_makron_chance = gi.cvar("g_horde_boss_jorg_makron_chance", "0.35", CVAR_NOFLAGS);
+	g_horde_boss_makron_health_mult = gi.cvar("g_horde_boss_makron_health_mult", "0.65", CVAR_NOFLAGS);
+	g_horde_boss_makron_damage_mult = gi.cvar("g_horde_boss_makron_damage_mult", "0.85", CVAR_NOFLAGS);
 
 	g_huntercam = gi.cvar("g_huntercam", "1", CVAR_SERVERINFO | CVAR_LATCH);
 	g_dm_strong_mines = gi.cvar("g_dm_strong_mines", "0", CVAR_NOFLAGS);

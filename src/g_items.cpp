@@ -1383,6 +1383,10 @@ void SetRespawn(gentity_t *ent, gtime_t delay, bool hide_self) {
 	if (!deathmatch->integer)
 		return;
 
+	// [MuffMode] Horde boss rewards stay claimable until the next wave starts.
+	if (MM_Horde_IsSharedReward(ent))
+		return;
+
 	if (ent->spawnflags.has(SPAWNFLAG_ITEM_DROPPED))
 		return;
 
@@ -1495,7 +1499,7 @@ static bool Pickup_Powerup(gentity_t *ent, gentity_t *other) {
 
 	other->client->pers.inventory[ent->item->id]++;
 	
-	if (g_quadhog->integer && ent->item->id == IT_POWERUP_QUAD) {
+	if (g_quadhog->integer && ent->item->id == IT_POWERUP_QUAD && !MM_Horde_IsSharedReward(ent)) {
 		if (ent->item->use)
 			ent->item->use(other, ent->item);
 		G_FreeEntity(ent);
@@ -2468,6 +2472,9 @@ TOUCH(Touch_Item) (gentity_t *ent, gentity_t *other, const trace_t &tr, bool oth
 		if (ent->item_picked_up_by[other->s.number - 1])
 			return;
 	}
+	// [MuffMode] Horde boss rewards are shared: every player may claim once.
+	if (MM_Horde_IsSharedReward(ent) && ent->item_picked_up_by[other->s.number - 1])
+		return;
 
 	// can't pickup during match countdown
 	if (IsPickupsDisabled())
@@ -2516,6 +2523,8 @@ TOUCH(Touch_Item) (gentity_t *ent, gentity_t *other, const trace_t &tr, bool oth
 			if (ent->message)
 				G_PrintActivationMessage(ent, other, false);
 		}
+		// [MuffMode] Keep shared Horde boss rewards available for other players.
+		MM_Horde_OnSharedRewardPickedUp(ent, other);
 		if (deathmatch->integer) {
 			switch (it->id) {
 			case IT_ARMOR_BODY:
@@ -2582,7 +2591,9 @@ TOUCH(Touch_Item) (gentity_t *ent, gentity_t *other, const trace_t &tr, bool oth
 	if (taken) {
 		bool should_remove = false;
 
-		if (coop->integer) {
+		if (MM_Horde_IsSharedReward(ent)) {
+			should_remove = false;
+		} else if (coop->integer) {
 			// in coop with instanced items, *only* dropped 
 			// player items will ever get deleted permanently.
 			if (P_UseCoopInstancedItems())

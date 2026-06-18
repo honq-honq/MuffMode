@@ -77,6 +77,7 @@ constexpr weighted_item_t monsters[] = {
 	{ "monster_soldier_ripper", 3, 10, 0.90f, 0.03f, { IT_AMMO_CELLS_SMALL, IT_HEALTH_SMALL }, 2 },
 	{ "monster_infantry", 3, -1, 1.05f, 0.05f, { IT_AMMO_BULLETS_SMALL, IT_AMMO_BULLETS }, 2 },
 	{ "monster_flyer", 3, -1, 1.10f, 0.02f, { IT_AMMO_CELLS_SMALL }, 2, HCAT_AERIAL },
+	{ "monster_kamikaze", 3, -1, 0.85f, 0, {}, 2, HCAT_AERIAL | HCAT_MELEE },
 	// mid-tier
 	{ "monster_gunner", 4, -1, 1.05f, 0.15f, { IT_AMMO_GRENADES, IT_AMMO_BULLETS_SMALL }, 3 },
 	// max_level was 14 (capped at the finale); uncapped to -1 so Melee/Infestation/Heavy/Aerial
@@ -86,9 +87,11 @@ constexpr weighted_item_t monsters[] = {
 	{ "monster_parasite", 4, -1, 1.00f, -0.05f, {}, 3, HCAT_INFEST },
 	{ "monster_gladb", 5, -1, 1.00f, 0.05f, { IT_AMMO_CELLS_SMALL }, 3, HCAT_HEAVY },
 	{ "monster_stalker", 5, -1, 0.95f, 0.05f, { IT_AMMO_CELLS_SMALL }, 3, HCAT_INFEST },
+	{ "monster_fixbot", 5, -1, 0.60f, 0.02f, { IT_HEALTH_SMALL, IT_AMMO_CELLS_SMALL }, 3, HCAT_AERIAL },
 	{ "monster_brain", 6, -1, 0.95f, 0, { IT_AMMO_CELLS_SMALL }, 3, HCAT_MELEE | HCAT_INFEST },
 	{ "monster_mutant", 6, -1, 0.90f, 0, {}, 3, HCAT_MELEE },
 	{ "monster_floater", 6, -1, 0.90f, 0, {}, 3, HCAT_AERIAL },
+	{ "monster_arachnid", 6, -1, 0.85f, 0.03f, { IT_AMMO_SLUGS_SMALL }, 4, HCAT_INFEST },
 	{ "monster_gladiator", 7, -1, 1.00f, 0.10f, { IT_AMMO_SLUGS }, 4, HCAT_HEAVY },
 	// heavies
 	{ "monster_hover", 8, -1, 0.85f, 0, {}, 4, HCAT_AERIAL },
@@ -99,6 +102,7 @@ constexpr weighted_item_t monsters[] = {
 	{ "monster_tank", 10, -1, 0.80f, 0.05f, { IT_AMMO_ROCKETS }, 6, HCAT_HEAVY },
 	{ "monster_chick_heat", 10, -1, 0.85f, 0.05f, { IT_AMMO_CELLS_SMALL, IT_AMMO_CELLS }, 4 },
 	{ "monster_shambler", 10, -1, 0.75f, 0.05f, {}, 6, HCAT_HEAVY },
+	{ "monster_guardian", 10, -1, 0.65f, 0.08f, { IT_AMMO_CELLS_SMALL, IT_ARMOR_SHARD }, 6, HCAT_HEAVY },
 	// finale
 	{ "monster_tank_commander", 11, -1, 0.45f, 0.15f, { IT_AMMO_ROCKETS_SMALL, IT_AMMO_BULLETS_SMALL, IT_AMMO_ROCKETS, IT_AMMO_BULLETS }, 8, HCAT_HEAVY },
 	{ "monster_medic_commander", 11, -1, 0.40f, 0.12f, { IT_AMMO_CELLS_SMALL, IT_HEALTH_MEDIUM, IT_HEALTH_LARGE }, 8 },
@@ -162,6 +166,40 @@ constexpr horde_theme_def_t horde_themes[] = {
 	{ horde_theme_t::HEAVY,       HCAT_HEAVY,  7, 0.80f, "HEAVY ASSAULT!" },
 	{ horde_theme_t::MELEE,       HCAT_MELEE,  4, 1.10f, "THEY'RE CLOSING IN!" },
 	{ horde_theme_t::INFESTATION, HCAT_INFEST, 4, 1.15f, "INFESTATION!" },
+};
+
+struct horde_boss_def_t {
+	const char *classname;
+	const char *name;
+	vec3_t      mins;
+	vec3_t      maxs;
+	float       health_factor;
+};
+
+constexpr horde_boss_def_t horde_bosses[] = {
+	{ "monster_boss5",     "Super Tank",  { -64.f, -64.f, 0.f }, { 64.f, 64.f, 112.f },  1.10f },
+	{ "monster_boss2",     "Hornet",      { -56.f, -56.f, 0.f }, { 56.f, 56.f,  80.f },  1.05f },
+	{ "monster_jorg",      "Jorg",        { -80.f, -80.f, 0.f }, { 80.f, 80.f, 140.f },  1.25f },
+	{ "monster_makron",    "Makron",      { -30.f, -30.f, 0.f }, { 30.f, 30.f,  90.f },  1.15f },
+	{ "monster_gladiator", "Gladiator",   { -32.f, -32.f, -24.f }, { 32.f, 32.f, 42.f }, 0.95f },
+	{ "monster_chick",     "Iron Maiden", { -16.f, -16.f, 0.f }, { 16.f, 16.f,  56.f }, 0.90f },
+};
+
+constexpr const char *HORDE_EMERGENCY_BOSS_CLASSNAME = "monster_chick";
+
+struct horde_reward_def_t {
+	item_id_t id;
+	int      weight;
+	bool     rare;
+};
+
+constexpr horde_reward_def_t horde_boss_rewards[] = {
+	{ IT_PACK,               28, false },
+	{ IT_POWER_SHIELD,       24, false },
+	{ IT_POWERUP_HASTE,      20, false },
+	{ IT_WEAPON_BFG,         16, false },
+	{ IT_POWERUP_QUAD,        6, true },
+	{ IT_POWERUP_PROTECTION,  6, true },
 };
 
 static const horde_theme_def_t *Horde_FindTheme(horde_theme_t theme)
@@ -451,10 +489,333 @@ extern cvar_t *g_horde_theme_chance;
 extern cvar_t *g_horde_theme_min_wave;
 extern cvar_t *g_horde_wave_variety;
 extern cvar_t *g_horde_wave_min_types;
+extern cvar_t *g_horde_techs;
+extern cvar_t *g_horde_ammo_respawn_scale;
+extern cvar_t *g_horde_ammo_drop_scale;
+extern cvar_t *g_horde_boss_waves;
+extern cvar_t *g_horde_boss_interval;
+extern cvar_t *g_horde_boss_health_base;
+extern cvar_t *g_horde_boss_health_per_point;
+extern cvar_t *g_horde_boss_health_mult;
+extern cvar_t *g_horde_boss_health_per_wave;
+extern cvar_t *g_horde_boss_player_health_scale;
+extern cvar_t *g_horde_boss_damage_mult;
+extern cvar_t *g_horde_boss_jorg_makron_chance;
+extern cvar_t *g_horde_boss_makron_health_mult;
+extern cvar_t *g_horde_boss_makron_damage_mult;
 
 static bool HordeActive()
 {
 	return g_gametype->integer == static_cast<int>(GT_HORDE);
+}
+
+static bool Horde_IsBossWaveNumber(int wave)
+{
+	const int interval = g_horde_boss_interval->integer;
+	return HordeActive() && g_horde_boss_waves->integer && interval > 0 && wave > 0 && (wave % interval) == 0;
+}
+
+static const horde_boss_def_t *Horde_PickBoss(uint32_t tried_mask)
+{
+	constexpr uint32_t all_mask = (1u << q_countof(horde_bosses)) - 1u;
+	tried_mask &= all_mask;
+	if (tried_mask == all_mask)
+		return nullptr;
+
+	for (size_t attempt = 0; attempt < q_countof(horde_bosses); attempt++) {
+		const size_t index = irandom(q_countof(horde_bosses));
+		if (!(tried_mask & (1u << index)))
+			return &horde_bosses[index];
+	}
+
+	for (size_t index = 0; index < q_countof(horde_bosses); index++)
+		if (!(tried_mask & (1u << index)))
+			return &horde_bosses[index];
+
+	return nullptr;
+}
+
+static uint32_t Horde_BossMask(const horde_boss_def_t *boss)
+{
+	if (!boss)
+		return 0;
+
+	for (size_t index = 0; index < q_countof(horde_bosses); index++)
+		if (&horde_bosses[index] == boss)
+			return 1u << static_cast<uint32_t>(index);
+
+	return 0;
+}
+
+static const horde_boss_def_t *Horde_LastBoss()
+{
+	const int index = level.horde_last_boss_index - 1;
+	if (index < 0 || index >= static_cast<int>(q_countof(horde_bosses)))
+		return nullptr;
+
+	return &horde_bosses[index];
+}
+
+static uint32_t Horde_LastBossMask()
+{
+	return Horde_BossMask(Horde_LastBoss());
+}
+
+static void Horde_RememberBoss(const horde_boss_def_t *boss)
+{
+	if (!boss)
+		return;
+
+	for (size_t index = 0; index < q_countof(horde_bosses); index++) {
+		if (&horde_bosses[index] != boss)
+			continue;
+
+		level.horde_last_boss_index = static_cast<int8_t>(index + 1);
+		return;
+	}
+}
+
+static const horde_boss_def_t *Horde_EmergencyBoss()
+{
+	for (const horde_boss_def_t &boss : horde_bosses)
+		if (!Q_strcasecmp(boss.classname, HORDE_EMERGENCY_BOSS_CLASSNAME))
+			return &boss;
+
+	return nullptr;
+}
+
+static const char *Horde_BossHealthBarName(const gentity_t *boss)
+{
+	if (!boss || !boss->classname)
+		return "BOSS";
+
+	if (!Q_strcasecmp(boss->classname, "monster_boss5"))
+		return "BOSS: Super Tank";
+	if (!Q_strcasecmp(boss->classname, "monster_boss2"))
+		return "BOSS: Hornet";
+	if (!Q_strcasecmp(boss->classname, "monster_jorg"))
+		return "BOSS: Jorg";
+	if (!Q_strcasecmp(boss->classname, "monster_makron"))
+		return "BOSS: Makron";
+	if (!Q_strcasecmp(boss->classname, "monster_gladiator"))
+		return "BOSS: Gladiator";
+	if (!Q_strcasecmp(boss->classname, "monster_chick"))
+		return "BOSS: Iron Maiden";
+
+	return "BOSS";
+}
+
+static const horde_reward_def_t *Horde_PickBossReward(bool *rare, uint32_t tried_mask)
+{
+	int total_weight = 0;
+
+	if (rare)
+		*rare = false;
+
+	for (size_t i = 0; i < q_countof(horde_boss_rewards); i++) {
+		if (tried_mask & (1u << i))
+			continue;
+		const horde_reward_def_t &reward = horde_boss_rewards[i];
+		total_weight += max(0, reward.weight);
+	}
+
+	if (total_weight <= 0)
+		return nullptr;
+
+	int roll = irandom(total_weight);
+	for (size_t i = 0; i < q_countof(horde_boss_rewards); i++) {
+		if (tried_mask & (1u << i))
+			continue;
+		const horde_reward_def_t &reward = horde_boss_rewards[i];
+		const int weight = max(0, reward.weight);
+		if (roll >= weight) {
+			roll -= weight;
+			continue;
+		}
+
+		if (rare)
+			*rare = reward.rare;
+		return &reward;
+	}
+
+	return nullptr;
+}
+
+static void Horde_ClearBossRewards()
+{
+	for (size_t i = globals.num_entities; i > 1; i--) {
+		gentity_t *ent = &g_entities[i - 1];
+		if (!ent->inuse)
+			continue;
+		if (!ent->spawnflags.has(SPAWNFLAG_ITEM_HORDE_SHARED_REWARD))
+			continue;
+
+		ent->think = nullptr;
+		ent->nextthink = 0_ms;
+		G_FreeEntity(ent);
+	}
+}
+
+static bool Horde_IsBossCountdownRefillItem(gentity_t *ent)
+{
+	if (!ent || !ent->inuse || !ent->item)
+		return false;
+	if (ent->spawnflags.has(SPAWNFLAG_ITEM_DROPPED | SPAWNFLAG_ITEM_DROPPED_PLAYER | SPAWNFLAG_ITEM_HORDE_SHARED_REWARD))
+		return false;
+
+	const item_id_t id = ent->item->id;
+	if (id == IT_FLAG_RED || id == IT_FLAG_BLUE)
+		return false;
+
+	const item_flags_t flags = ent->item->flags;
+	if (flags & (IF_KEY | IF_TECH))
+		return false;
+
+	return !!(flags & (IF_WEAPON | IF_AMMO | IF_ARMOR | IF_POWER_ARMOR | IF_HEALTH | IF_POWERUP | IF_TIMED | IF_SPHERE));
+}
+
+static bool Horde_ItemNeedsRespawn(gentity_t *ent)
+{
+	return (ent->svflags & (SVF_NOCLIENT | SVF_RESPAWNING)) || ent->solid == SOLID_NOT || ent->think == RespawnItem;
+}
+
+static void Horde_ScheduleItemRespawn(gentity_t *ent)
+{
+	ent->think = RespawnItem;
+	ent->nextthink = level.time + FRAME_TIME_MS;
+}
+
+static int Horde_RefreshMapItemsForBossCountdown()
+{
+	int refreshed = 0;
+
+	for (size_t i = 1; i < globals.num_entities; i++) {
+		gentity_t *ent = &g_entities[i];
+		if (!Horde_IsBossCountdownRefillItem(ent))
+			continue;
+
+		if (ent->team) {
+			if (ent != ent->teammaster)
+				continue;
+
+			bool team_needs_respawn = false;
+			for (gentity_t *member = ent; member; member = member->chain) {
+				if (Horde_IsBossCountdownRefillItem(member) && Horde_ItemNeedsRespawn(member)) {
+					team_needs_respawn = true;
+					break;
+				}
+			}
+
+			if (!team_needs_respawn)
+				continue;
+
+			for (gentity_t *member = ent; member; member = member->chain) {
+				if (!Horde_IsBossCountdownRefillItem(member))
+					continue;
+				member->svflags |= SVF_NOCLIENT;
+				member->solid = SOLID_NOT;
+				member->nextthink = 0_ms;
+				gi.linkentity(member);
+			}
+
+			Horde_ScheduleItemRespawn(ent);
+			refreshed++;
+			continue;
+		}
+
+		if (!Horde_ItemNeedsRespawn(ent))
+			continue;
+
+		Horde_ScheduleItemRespawn(ent);
+		refreshed++;
+	}
+
+	return refreshed;
+}
+
+static void Horde_RefillMapItemsForBossCountdown()
+{
+	const int wave = MM_Horde_CountdownWaveNumber();
+	if (!Horde_IsBossWaveNumber(wave))
+		return;
+
+	const int refreshed = Horde_RefreshMapItemsForBossCountdown();
+	gi.LocBroadcast_Print(PRINT_CHAT, "Boss wave incoming: map supplies refreshed.\n");
+	gi.Com_PrintFmt("MM_Horde: boss wave {} refreshed {} map item spawns\n", wave, refreshed);
+}
+
+static void Horde_SpawnBossReward(const vec3_t &origin)
+{
+	uint32_t tried_mask = 0;
+
+	for (size_t attempts = 0; attempts < q_countof(horde_boss_rewards); attempts++) {
+		bool rare = false;
+		const horde_reward_def_t *reward_def = Horde_PickBossReward(&rare, tried_mask);
+		if (!reward_def)
+			return;
+
+		const uint32_t reward_index = static_cast<uint32_t>(reward_def - horde_boss_rewards);
+		tried_mask |= 1u << reward_index;
+
+		gitem_t *item = GetItemByIndex(reward_def->id);
+		if (!item)
+			continue;
+
+		gentity_t *reward = G_Spawn();
+		reward->s.origin = origin;
+		reward->s.origin[2] += 24.f;
+
+		if (!SpawnItem(reward, item))
+			continue;
+
+		reward->spawnflags |= SPAWNFLAG_ITEM_HORDE_SHARED_REWARD;
+		reward->svflags |= SVF_INSTANCED;
+		reward->item_picked_up_by.reset();
+
+		const char *reward_name = reward->item && reward->item->use_name ? reward->item->use_name : item->use_name;
+		gi.LocBroadcast_Print(PRINT_CENTER, "{}: {}!\n", rare ? "Rare boss reward" : "Boss reward", reward_name);
+		gi.LocBroadcast_Print(PRINT_CHAT, "Boss dropped {}! Claim it before the next wave.\n", reward_name);
+		return;
+	}
+}
+
+bool MM_Horde_UsesWaveTechs()
+{
+	return HordeActive() && g_horde_techs->integer && AllowTechs();
+}
+
+bool MM_Horde_IsSharedReward(gentity_t *ent)
+{
+	return HordeActive() && ent && ent->spawnflags.has(SPAWNFLAG_ITEM_HORDE_SHARED_REWARD);
+}
+
+void MM_Horde_OnSharedRewardPickedUp(gentity_t *ent, gentity_t *other)
+{
+	if (!MM_Horde_IsSharedReward(ent) || !other || !other->client)
+		return;
+
+	const int player_number = other->s.number - 1;
+	if (player_number < 0 || player_number >= MAX_CLIENTS)
+		return;
+
+	ent->item_picked_up_by[player_number] = true;
+}
+
+gtime_t MM_Horde_WeaponRespawnDelay(gtime_t base_delay)
+{
+	if (!HordeActive() || g_horde_ammo_respawn_scale->value <= 0.f)
+		return base_delay;
+
+	const int fighters = level.horde_fighters_snapshotted > 0
+		? level.horde_fighters_snapshotted
+		: MM_Horde_CountFighters();
+	if (fighters <= 1)
+		return base_delay;
+
+	const float divisor = 1.f + (fighters - 1) * g_horde_ammo_respawn_scale->value;
+	const gtime_t scaled = base_delay / divisor;
+
+	return scaled < 1_sec ? 1_sec : scaled;
 }
 
 static int Horde_MarkMonsterSlots()
@@ -748,6 +1109,84 @@ bool MM_Horde_ShouldSkipEntitiesReset()
 	return HordeActive();
 }
 
+// Remove all techs from every playing client and free every in-world tech
+// entity so the next countdown starts with a clean slate.
+static void Horde_ClearTechs()
+{
+	for (auto ec : active_clients())
+	{
+		if (!ec->client)
+			continue;
+		for (item_id_t id : tech_ids)
+			ec->client->pers.inventory[id] = 0;
+	}
+
+	static constexpr const char *tech_classnames[] = {
+		"item_tech1", "item_tech2", "item_tech3", "item_tech4"
+	};
+
+	for (size_t i = globals.num_entities; i > 1; i--)
+	{
+		gentity_t *ent = &g_entities[i - 1];
+		if (!ent->inuse)
+			continue;
+
+		const char *cn = ent->classname;
+		if (!cn)
+			continue;
+
+		for (const char *tcn : tech_classnames)
+		{
+			if (!Q_strcasecmp(cn, tcn))
+			{
+				ent->think = nullptr;
+				ent->nextthink = 0_ms;
+				G_FreeEntity(ent);
+				break;
+			}
+		}
+	}
+}
+
+static void Horde_SpawnCountdownTechs()
+{
+	if (!MM_Horde_UsesWaveTechs())
+		return;
+
+	if (level.num_spawn_spots < 1)
+		return;
+
+	Horde_ClearTechs();
+
+	// Pick unique random spawn points via Fisher-Yates shuffle.
+	std::vector<int> spots;
+	spots.reserve(level.num_spawn_spots);
+	for (int i = 0; i < level.num_spawn_spots; i++)
+		spots.push_back(i);
+	for (int i = (int)spots.size() - 1; i > 0; i--)
+	{
+		int j = irandom(i + 1);
+		int t = spots[i];
+		spots[i] = spots[j];
+		spots[j] = t;
+	}
+
+	// [MuffMode] Always spawn exactly 1 of each tech type (4 total).
+	constexpr int kTechCount = q_countof(tech_ids);
+	for (int i = 0; i < kTechCount; i++)
+	{
+		gentity_t *spot = level.spawn_spots[spots[i % static_cast<int>(spots.size())]];
+		gitem_t *tech_item = GetItemByIndex(tech_ids[i]);
+		if (!spot || !tech_item)
+			continue;
+
+		gentity_t *ent = G_Spawn();
+		ent->s.origin = spot->s.origin;
+		if (SpawnItem(ent, tech_item))
+			ent->spawnflags = SPAWNFLAG_ITEM_DROPPED;
+	}
+}
+
 int MM_Horde_CountdownWaveNumber()
 {
 	if (notGT(GT_HORDE))
@@ -775,6 +1214,11 @@ void MM_Horde_OnRoundCountdown()
 	if (notGT(GT_HORDE))
 		return;
 
+	Horde_RefillMapItemsForBossCountdown();
+
+	// [MuffMode] Spawn tech items before each wave countdown so players can
+	// grab one before the wave starts. Techs are stripped when the wave clears.
+	Horde_SpawnCountdownTechs();
 	MM_Horde_GrantWaveLives();
 }
 
@@ -782,6 +1226,8 @@ void MM_Horde_OnRoundStarted()
 {
 	if (notGT(GT_HORDE))
 		return;
+
+	Horde_ClearBossRewards();
 
 	// Begin the wave first so the theme is chosen before we announce it.
 	MM_Horde_BeginWave();
@@ -865,6 +1311,8 @@ void MM_Horde_CleanWaveTransition()
 	if (!HordeActive())
 		return;
 
+	level.horde_boss_health_entity = nullptr;
+
 	// Remove dead monster corpses between waves (Horde skips Entities_Reset).
 	for (size_t i = globals.num_entities; i > 1; i--) {
 		gentity_t *ent = &g_entities[i - 1];
@@ -895,7 +1343,14 @@ void MM_Horde_OnRoundEnd()
 		return;
 
 	level.horde_all_spawned = false;
+	level.horde_boss_wave = false;
+	level.horde_boss_spawned = false;
+	level.horde_boss_jorg_makron_pending = false;
+	level.horde_boss_health_entity = nullptr;
 	MM_Horde_CleanWaveTransition();
+	// [MuffMode] Strip techs from all players and free every in-world tech
+	// entity so the next countdown starts with a clean slate.
+	Horde_ClearTechs();
 }
 
 bool MM_Horde_UpdateRoundInProgress()
@@ -909,7 +1364,7 @@ bool MM_Horde_UpdateRoundInProgress()
 	MM_Horde_RunSpawning();
 	MM_Horde_UpdateMonsterMarkers();
 
-	if (level.horde_all_spawned && !(level.total_monsters - level.killed_monsters)) {
+	if (level.horde_all_spawned && !(level.total_monsters - level.killed_monsters) && !level.horde_boss_jorg_makron_pending) {
 		gi.LocBroadcast_Print(PRINT_CENTER, "Monsters eliminated!\n");
 		gi.positioned_sound(world->s.origin, world, CHAN_AUTO | CHAN_RELIABLE, gi.soundindex("ctf/flagcap.wav"), 1, ATTN_NONE, 0);
 		return true;
@@ -985,7 +1440,28 @@ void MM_Horde_BeginWave()
 	if (notGT(GT_HORDE))
 		return;
 
+	// [MuffMode] Clean up any dead monsters from warmup or previous map state
+	// before the first wave (OnRoundEnd hasn't run yet for wave 1).
 	MM_Horde_CleanWaveTransition();
+
+	level.horde_all_spawned = false;
+	level.horde_boss_wave = Horde_IsBossWaveNumber(level.round_number);
+	level.horde_boss_spawned = false;
+	level.horde_boss_jorg_makron_pending = false;
+	level.horde_boss_health_entity = nullptr;
+
+	if (level.horde_boss_wave) {
+		const int fighters = MM_Horde_CountFighters();
+		level.horde_fighters_snapshotted = static_cast<int8_t>(fighters);
+		level.horde_wave_theme = static_cast<int8_t>(horde_theme_t::NONE);
+		level.horde_wave_roster = 0;
+		level.horde_champion_pending = false;
+		level.horde_spawn_points_remaining = 1;
+
+		const int delay_ms = max(0, g_horde_wave_spawn_delay_ms->integer);
+		level.horde_monster_spawn_time = level.time + gtime_t::from_ms(delay_ms);
+		return;
+	}
 
 	// Pick this wave's theme. Rare (g_horde_theme_chance), never the same as the previous
 	// themed wave, and only themes whose monsters exist by this wave are eligible.
@@ -1104,6 +1580,7 @@ void MM_Horde_BeginWave()
 
 	const int fighters = MM_Horde_CountFighters();
 	level.horde_fighters_snapshotted = static_cast<int8_t>(fighters);
+
 	level.horde_spawn_points_remaining = MM_Horde_WavePointBudget();
 
 	if (const horde_theme_def_t *theme = Horde_FindTheme(static_cast<horde_theme_t>(level.horde_wave_theme)))
@@ -1122,11 +1599,13 @@ void MM_Horde_BeginWave()
 // against a brush it starts inside), e.g. into the blood pool under the walkway at
 // 1104 208 -633. Lift the origin clear before validating, and nudge as a fallback.
 // Also rejects spots whose ground is liquid. Returns false if the spot is unusable.
-static bool Horde_ValidateSpawnOrigin(vec3_t &origin, const vec3_t &check_mins, const vec3_t &check_maxs)
+static bool Horde_ValidateSpawnOrigin(vec3_t &origin, const vec3_t &check_mins, const vec3_t &check_maxs, bool allow_nudge = true)
 {
 	origin[2] += 16.f;
 
 	if (!CheckSpawnPoint(origin, check_mins, check_maxs)) {
+		if (!allow_nudge)
+			return false;
 		if (G_FixStuckObject_Generic(origin, check_mins, check_maxs,
 				[](const vec3_t &start, const vec3_t &mins, const vec3_t &maxs, const vec3_t &end) {
 					return gi.trace(start, mins, maxs, end, nullptr, MASK_MONSTERSOLID);
@@ -1136,10 +1615,222 @@ static bool Horde_ValidateSpawnOrigin(vec3_t &origin, const vec3_t &check_mins, 
 			return false;
 	}
 
-	trace_t tr = gi.trace(origin, check_mins, check_maxs, origin - vec3_t{ 0.f, 0.f, 64.f }, nullptr, MASK_MONSTERSOLID);
-	if (gi.pointcontents(tr.endpos) & (CONTENTS_LAVA | CONTENTS_SLIME))
+	vec3_t grounded = origin;
+	if (!M_droptofloor_generic(grounded, check_mins, check_maxs, false, nullptr, MASK_MONSTERSOLID, false))
+		return false;
+	if (origin[2] - grounded[2] > 96.f)
+		return false;
+	if (!CheckGroundSpawnPoint(grounded, check_mins, check_maxs, 96.f, -1.f))
+		return false;
+	if (gi.pointcontents(grounded) & (CONTENTS_LAVA | CONTENTS_SLIME))
 		return false;
 
+	origin = grounded;
+	return true;
+}
+
+static float Horde_PlayerRangeFromSpot(gentity_t *spot)
+{
+	float best_distance = 999999.f;
+
+	for (auto ec : active_clients()) {
+		if (!ec->client || !ClientIsPlaying(ec->client))
+			continue;
+		if (ec->health <= 0 || ec->client->eliminated)
+			continue;
+
+		const float distance = (spot->s.origin - ec->s.origin).length();
+		if (distance < best_distance)
+			best_distance = distance;
+	}
+
+	return best_distance;
+}
+
+static bool Horde_BossCanMoveToSample(const horde_boss_def_t *boss, const vec3_t &origin, const vec3_t &offset)
+{
+	vec3_t sample_origin = origin + offset;
+
+	if (!Horde_ValidateSpawnOrigin(sample_origin, boss->mins, boss->maxs, false))
+		return false;
+	if (fabs(sample_origin[2] - origin[2]) > 48.f)
+		return false;
+
+	const trace_t tr = gi.trace(origin, boss->mins, boss->maxs, sample_origin, nullptr, MASK_MONSTERSOLID);
+	return !tr.startsolid && !tr.allsolid && tr.fraction == 1.f;
+}
+
+// Bosses use oversized hulls and can fit at a deathmatch spawn while still being
+// trapped in a corridor or side room. Require open movement in several directions
+// so boss waves prefer arenas/courtyards over narrow player-only routes.
+static bool Horde_BossSpawnHasArenaClearance(const horde_boss_def_t *boss, const vec3_t &origin)
+{
+	constexpr float near_radius = 192.f;
+	constexpr float far_radius = 320.f;
+	constexpr float diagonal = 0.70710678f;
+	constexpr vec3_t directions[] = {
+		{  1.f,       0.f,       0.f },
+		{ -1.f,       0.f,       0.f },
+		{  0.f,       1.f,       0.f },
+		{  0.f,      -1.f,       0.f },
+		{  diagonal,  diagonal, 0.f },
+		{  diagonal, -diagonal, 0.f },
+		{ -diagonal,  diagonal, 0.f },
+		{ -diagonal, -diagonal, 0.f },
+	};
+
+	int near_clear = 0;
+	int far_clear = 0;
+
+	for (const vec3_t &dir : directions) {
+		if (Horde_BossCanMoveToSample(boss, origin, dir * near_radius))
+			near_clear++;
+		if (Horde_BossCanMoveToSample(boss, origin, dir * far_radius))
+			far_clear++;
+	}
+
+	return near_clear >= 3 && far_clear >= 2;
+}
+
+static bool Horde_ConsiderBossSpawnSpot(const horde_boss_def_t *boss, gentity_t *spot, vec3_t &best_origin, vec3_t &best_angles, float &best_distance, bool require_arena_clearance)
+{
+	if (!spot)
+		return false;
+
+	vec3_t candidate_origin = spot->s.origin;
+	if (!Horde_ValidateSpawnOrigin(candidate_origin, boss->mins, boss->maxs, false))
+		return false;
+	if (require_arena_clearance && !Horde_BossSpawnHasArenaClearance(boss, candidate_origin))
+		return false;
+
+	const float distance = Horde_PlayerRangeFromSpot(spot);
+	if (distance <= best_distance && best_distance < 999999.f)
+		return true;
+
+	best_origin = candidate_origin;
+	best_angles = spot->s.angles;
+	best_distance = distance;
+	return true;
+}
+
+static bool Horde_SelectBossSpawnPoint(const horde_boss_def_t *boss, vec3_t &spawn_origin, vec3_t &spawn_angles, bool require_arena_clearance = true)
+{
+	float best_distance = -1.f;
+	bool  found = false;
+
+	auto consider_class = [&](const char *classname) {
+		gentity_t *spot = nullptr;
+		while ((spot = G_FindByString<&gentity_t::classname>(spot, classname)) != nullptr) {
+			if (Horde_ConsiderBossSpawnSpot(boss, spot, spawn_origin, spawn_angles, best_distance, require_arena_clearance))
+				found = true;
+		}
+	};
+
+	consider_class("info_player_deathmatch");
+	if (!found) {
+		consider_class("info_player_team_red");
+		consider_class("info_player_team_blue");
+	}
+	if (!found)
+		consider_class("info_player_start");
+
+	return found;
+}
+
+static void Horde_ApplyBossScaling(gentity_t *boss, bool makron_phase, float boss_health_factor = 1.f)
+{
+	if (!boss || !(boss->svflags & SVF_MONSTER))
+		return;
+
+	const int fighters = level.horde_fighters_snapshotted > 0
+		? level.horde_fighters_snapshotted
+		: MM_Horde_CountFighters();
+	const float player_scale = max(0.f, g_horde_boss_player_health_scale->value);
+	const float player_mult = 1.f + max(0, fighters - 1) * player_scale;
+	const float base_hp = max(0.f, g_horde_boss_health_base->value);
+	const float hp_per_point = max(0.f, g_horde_boss_health_per_point->value);
+	const float hp_per_wave = max(0.f, g_horde_boss_health_per_wave->value);
+	const float global_mult = max(0.1f, g_horde_boss_health_mult->value);
+	const float target_health = max(1.f, base_hp +
+		(hp_per_point * static_cast<float>(MM_Horde_WavePointBudget())) +
+		(hp_per_wave * static_cast<float>(level.round_number)));
+	const float boss_mult = max(0.1f, boss_health_factor);
+	const float phase_health_mult = makron_phase ? max(0.1f, g_horde_boss_makron_health_mult->value) : 1.f;
+	const float phase_damage_mult = makron_phase ? max(0.1f, g_horde_boss_makron_damage_mult->value) : 1.f;
+	const int boss_hp = max(1, static_cast<int>(ceil(target_health * global_mult * player_mult * boss_mult * phase_health_mult)));
+
+	boss->health = boss->max_health = boss_hp;
+	boss->monsterinfo.base_health = boss_hp;
+	boss->monsterinfo.champion_damage_scale = max(1.f, g_horde_boss_damage_mult->value * phase_damage_mult);
+	boss->spawnflags |= SPAWNFLAG_MONSTER_HORDE_BOSS;
+	boss->item = nullptr;
+}
+
+static bool Horde_SpawnBossMonster()
+{
+	const horde_boss_def_t *boss = nullptr;
+	vec3_t spawn_origin;
+	vec3_t spawn_angles;
+	uint32_t tried_bosses = 0;
+
+	for (size_t attempt = 0; attempt < q_countof(horde_bosses); attempt++) {
+		const horde_boss_def_t *candidate = Horde_PickBoss(tried_bosses | Horde_LastBossMask());
+		if (!candidate)
+			break;
+
+		tried_bosses |= Horde_BossMask(candidate);
+		if (!Horde_SelectBossSpawnPoint(candidate, spawn_origin, spawn_angles))
+			continue;
+
+		boss = candidate;
+		break;
+	}
+
+	if (!boss) {
+		if (const horde_boss_def_t *fallback = Horde_LastBoss()) {
+			if (Horde_SelectBossSpawnPoint(fallback, spawn_origin, spawn_angles))
+				boss = fallback;
+		}
+	}
+
+	if (!boss) {
+		if (const horde_boss_def_t *fallback = Horde_EmergencyBoss()) {
+			if (Horde_SelectBossSpawnPoint(fallback, spawn_origin, spawn_angles, false))
+				boss = fallback;
+		}
+	}
+
+	if (!boss)
+		return false;
+
+	gentity_t *e = G_Spawn();
+	e->classname = boss->classname;
+
+	e->s.origin = spawn_origin;
+	e->s.angles = spawn_angles;
+
+	st = {};
+	ED_CallSpawn(e);
+
+	if (!e->inuse || !(e->svflags & SVF_MONSTER)) {
+		if (e->inuse)
+			G_FreeEntity(e);
+		return false;
+	}
+
+	Horde_RememberBoss(boss);
+	Horde_ApplyBossScaling(e, false, boss->health_factor);
+	e->enemy = FindClosestPlayerToPoint(e->s.origin);
+	if (e->enemy)
+		FoundTarget(e);
+
+	level.horde_boss_spawned = true;
+	level.horde_all_spawned = true;
+	level.horde_spawn_points_remaining = 0;
+	level.horde_boss_health_entity = e;
+
+	gi.LocBroadcast_Print(PRINT_CENTER, "BOSS WAVE!\n{} has arrived!\n", boss->name);
+	gi.LocBroadcast_Print(PRINT_CHAT, "Boss wave: {}!\n", boss->name);
 	return true;
 }
 
@@ -1169,8 +1860,23 @@ void MM_Horde_RunSpawning()
 	if (level.horde_all_spawned)
 		return;
 
+	if (!warmup && level.horde_boss_wave) {
+		if (level.horde_boss_spawned) {
+			level.horde_all_spawned = true;
+			return;
+		}
+
+		if (level.horde_monster_spawn_time <= level.time) {
+			if (!Horde_SpawnBossMonster())
+				level.horde_monster_spawn_time = level.time + 1_sec;
+		}
+		return;
+	}
+
 	if (!warmup && level.horde_spawn_points_remaining <= 0) {
 		level.horde_all_spawned = true;
+		if (level.horde_champion_pending)
+			level.horde_champion_pending = false;
 		return;
 	}
 
@@ -1179,9 +1885,11 @@ void MM_Horde_RunSpawning()
 		const weighted_item_t *monster_row = nullptr;
 		const char            *monster_class = Horde_PickMonsterForWave(&monster_row, remaining);
 		if (!monster_class) {
-			if (!warmup)
+			if (!warmup) {
 				level.horde_all_spawned = true;
-			else
+				if (level.horde_champion_pending)
+					level.horde_champion_pending = false;
+			} else
 				level.horde_monster_spawn_time = level.time + 5_sec;
 			return;
 		}
@@ -1286,8 +1994,11 @@ void MM_Horde_RunSpawning()
 			if (!warmup && monster_row) {
 				level.horde_spawn_points_remaining -= monster_row->spawn_points;
 
-				if (level.horde_spawn_points_remaining <= 0)
+				if (level.horde_spawn_points_remaining <= 0) {
 					level.horde_all_spawned = true;
+					if (level.horde_champion_pending)
+						level.horde_champion_pending = false;
+				}
 			}
 		} else {
 			G_FreeEntity(e);
@@ -1307,4 +2018,125 @@ void MM_Horde_AdjustPlayerScore(gclient_t *cl, int32_t offset)
 		return;
 
 	G_AdjustPlayerScore(cl, offset, false, 0);
+}
+
+void MM_Horde_OnMonsterKilled(gentity_t *ent)
+{
+	if (!HordeActive() || !ent || !ent->spawnflags.has(SPAWNFLAG_MONSTER_HORDE_BOSS))
+		return;
+
+	if (level.horde_boss_health_entity == ent)
+		level.horde_boss_health_entity = nullptr;
+
+	if (ent->classname && !Q_strcasecmp(ent->classname, "monster_jorg")) {
+		const float makron_chance = clamp(g_horde_boss_jorg_makron_chance->value, 0.f, 1.f);
+		if (makron_chance > 0.f && frandom() < makron_chance) {
+			level.horde_boss_jorg_makron_pending = true;
+			gi.LocBroadcast_Print(PRINT_CENTER, "Jorg is not done!\n");
+			gi.LocBroadcast_Print(PRINT_CHAT, "Jorg is not done! Makron phase incoming.\n");
+			return;
+		}
+	}
+
+	level.horde_boss_jorg_makron_pending = false;
+	Horde_SpawnBossReward(ent->s.origin);
+}
+
+bool MM_Horde_GetBossHealthBar(const char **name, uint8_t *health_byte)
+{
+	if (name)
+		*name = nullptr;
+
+	if (!HordeActive())
+		return false;
+
+	gentity_t *boss = level.horde_boss_health_entity;
+	if (!boss)
+		return false;
+
+	if (!boss->inuse || !(boss->svflags & SVF_MONSTER) ||
+		!boss->spawnflags.has(SPAWNFLAG_MONSTER_HORDE_BOSS) ||
+		boss->health <= 0 || boss->max_health <= 0) {
+		level.horde_boss_health_entity = nullptr;
+		return false;
+	}
+
+	const float health_remaining = clamp((float) boss->health / (float) boss->max_health, 0.f, 1.f);
+	const uint8_t health_value = (uint8_t) clamp((int) (health_remaining * 0b01111111), 0, 0b01111111);
+
+	if (name)
+		*name = Horde_BossHealthBarName(boss);
+	if (health_byte)
+		*health_byte = health_value | 0b10000000;
+
+	return true;
+}
+
+bool MM_Horde_ShouldAllowJorgMakron(gentity_t *jorg)
+{
+	if (!HordeActive())
+		return true;
+	if (!jorg || !jorg->spawnflags.has(SPAWNFLAG_MONSTER_HORDE_BOSS))
+		return true;
+
+	return level.horde_boss_jorg_makron_pending;
+}
+
+void MM_Horde_OnJorgMakronSpawned(gentity_t *jorg, gentity_t *makron)
+{
+	if (!HordeActive() || !jorg || !jorg->spawnflags.has(SPAWNFLAG_MONSTER_HORDE_BOSS))
+		return;
+	if (!level.horde_boss_jorg_makron_pending)
+		return;
+
+	level.horde_boss_jorg_makron_pending = false;
+
+	if (!makron || !makron->inuse || !(makron->svflags & SVF_MONSTER)) {
+		Horde_SpawnBossReward(jorg->s.origin);
+		return;
+	}
+
+	Horde_ApplyBossScaling(makron, true);
+	level.horde_boss_health_entity = makron;
+	gi.LocBroadcast_Print(PRINT_CENTER, "Makron emerges!\n");
+	gi.LocBroadcast_Print(PRINT_CHAT, "Makron has entered the boss wave!\n");
+}
+
+// [MuffMode] Give bonus ammo on monster kill, scaled by the number of active
+// fighters so larger groups aren't starved by map ammo scarcity.
+void MM_Horde_AdjustAmmoDrop(gentity_t *attacker)
+{
+	if (notGT(GT_HORDE))
+		return;
+	if (!attacker || !attacker->client)
+		return;
+	if (g_horde_ammo_drop_scale->value <= 0.f)
+		return;
+
+	const int fighters = level.horde_fighters_snapshotted;
+	if (fighters <= 1)
+		return;
+
+	static constexpr struct { item_id_t id; ammo_t tag; } common_ammo[] = {
+		{ IT_AMMO_SHELLS,    AMMO_SHELLS },
+		{ IT_AMMO_BULLETS,   AMMO_BULLETS },
+		{ IT_AMMO_CELLS,     AMMO_CELLS },
+		{ IT_AMMO_ROCKETS,   AMMO_ROCKETS },
+		{ IT_AMMO_SLUGS,     AMMO_SLUGS },
+		{ IT_AMMO_GRENADES,  AMMO_GRENADES },
+	};
+
+	const float extra = g_horde_ammo_drop_scale->value * (fighters - 1);
+	int         count = (int)extra;
+	if (frandom() < (extra - count))
+		count++;
+
+	for (int i = 0; i < count; i++)
+	{
+		auto &entry = common_ammo[irandom(q_countof(common_ammo))];
+		gitem_t *item = GetItemByIndex(entry.id);
+		if (!item)
+			continue;
+		Add_Ammo(attacker, item, item->quantity);
+	}
 }

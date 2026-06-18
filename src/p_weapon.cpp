@@ -4,6 +4,8 @@
 
 #include "g_local.h"
 #include "monsters/m_player.h"
+// [MuffMode] Horde-specific weapon respawn scaling hook.
+#include "muffmode/mm_horde.h"
 // [MuffMode] Per-ruleset weapon tuning hooks (MM_Ruleset_*)
 #include "muffmode/mm_ruleset_weapons.h"
 
@@ -280,7 +282,8 @@ bool Pickup_Weapon(gentity_t *ent, gentity_t *other) {
 				if (g_dm_weapons_stay->integer)
 					ent->flags |= FL_RESPAWN;
 
-				SetRespawn(ent, gtime_t::from_sec(g_weapon_respawn_time->integer), !g_dm_weapons_stay->integer);
+				// [MuffMode] Apply Horde player-count scaling without mutating the global cvar.
+				SetRespawn(ent, MM_Horde_WeaponRespawnDelay(gtime_t::from_sec(g_weapon_respawn_time->integer)), !g_dm_weapons_stay->integer);
 			}
 			if (coop->integer)
 				ent->flags |= FL_RESPAWN;

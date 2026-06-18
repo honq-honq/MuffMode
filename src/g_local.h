@@ -1692,6 +1692,11 @@ struct level_locals_t {
 	bool		horde_champion_pending;    // current wave owes its champion to the next valid spawn
 	int8_t		horde_wave_theme;          // horde_theme_t of the current wave (0 = none)
 	uint32_t	horde_wave_roster;         // bitmask over monsters[] indices, 0 = unrestricted
+	bool		horde_boss_wave;           // [MuffMode] current wave uses boss-only spawning
+	bool		horde_boss_spawned;        // [MuffMode] boss body for this wave has spawned
+	bool		horde_boss_jorg_makron_pending; // [MuffMode] Jorg death rolled into a Makron phase
+	gentity_t	*horde_boss_health_entity; // [MuffMode] active boss body for cgame health bar
+	int8_t		horde_last_boss_index;     // [MuffMode] last boss pool slot + 1; 0 = none yet
 
 	char		author[MAX_QPATH];
 	char		author2[MAX_QPATH];
@@ -2533,6 +2538,7 @@ constexpr spawnflags_t SPAWNFLAG_ITEM_MAX				= 0x00000010_spawnflag;
 constexpr spawnflags_t SPAWNFLAG_ITEM_DROPPED			= 0x00010000_spawnflag;
 constexpr spawnflags_t SPAWNFLAG_ITEM_DROPPED_PLAYER	= 0x00020000_spawnflag;
 constexpr spawnflags_t SPAWNFLAG_ITEM_TARGETS_USED		= 0x00040000_spawnflag;
+constexpr spawnflags_t SPAWNFLAG_ITEM_HORDE_SHARED_REWARD = 0x00080000_spawnflag; // [MuffMode]
 
 extern gitem_t itemlist[IT_TOTAL];
 
@@ -2847,6 +2853,7 @@ constexpr spawnflags_t SPAWNFLAG_MONSTER_DEAD = 16_spawnflag_bit;
 constexpr spawnflags_t SPAWNFLAG_MONSTER_SUPER_STEP = 17_spawnflag_bit;
 constexpr spawnflags_t SPAWNFLAG_MONSTER_NO_DROP = 18_spawnflag_bit;
 constexpr spawnflags_t SPAWNFLAG_MONSTER_SCENIC = 19_spawnflag_bit;
+constexpr spawnflags_t SPAWNFLAG_MONSTER_HORDE_BOSS = 20_spawnflag_bit; // [MuffMode]
 
 // fixbot spawnflags
 constexpr spawnflags_t SPAWNFLAG_FIXBOT_FIXIT = 4_spawnflag;
